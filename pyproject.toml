@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tgtbt"
+version = "0.0.1"
+description = "too-good-to-be-true-backtester: a strategy-validation harness that detects overfitting."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "yfinance>=0.2.40",
+    "matplotlib>=3.7",
+    "statsmodels>=0.14",
+    "pyarrow>=14",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[tool.setuptools.packages.find]
+include = ["tgtbt*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

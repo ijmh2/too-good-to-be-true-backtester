@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual env
+.venv/
+venv/
+
+# Data cache (fetched prices are reproducible; don't commit)
+data_cache/*.parquet
+
+# Notebooks / OS
+.ipynb_checkpoints/
+.DS_Store
+
+# Outputs
+outputs/
+*.png
+!docs/**/*.png
