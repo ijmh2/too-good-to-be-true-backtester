@@ -1,10 +1,14 @@
-"""Monte-Carlo confidence intervals via the stationary/block bootstrap.
+"""Monte-Carlo confidence intervals via the fixed-length circular block bootstrap.
 
-A single equity curve is one draw from a noisy process; its Sharpe and max drawdown are
-point estimates with real uncertainty. We resample the return series in *blocks* (to keep
-short-horizon autocorrelation intact) to generate many alternative histories, then read off
-the distribution of each metric. If the strategy's headline Sharpe sits comfortably inside a
-cloud that also contains zero, the "edge" is within the noise.
+A single equity curve is one draw from a noisy process; its Sharpe is a point estimate with
+real uncertainty. We resample the return series in *blocks* (to keep short-horizon
+autocorrelation intact) to generate many alternative histories, then read off the distribution
+of each metric. If the strategy's headline Sharpe sits comfortably inside a cloud that also
+contains zero, the "edge" is within the noise.
+
+Caveat: Sharpe and CAGR are (near-)invariant to reordering blocks, so their bootstrap
+distributions are meaningful. Max drawdown is strongly path-dependent, so its resampled
+distribution is illustrative only — read it with that in mind.
 
 We also return percentile bands of the resampled equity curves for a confidence cone.
 """

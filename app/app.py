@@ -153,7 +153,7 @@ if run:
     tickers = tuple(t.strip().upper() for t in tickers_str.split(",") if t.strip())
     with st.spinner("Loading prices…"):
         prices, src = load_prices(tickers, start, end)
-        benchmark = BuyAndHold().backtest(prices).net_returns
+        benchmark = BuyAndHold().backtest(prices, cost_model=CostModel(cost_bps)).net_returns
     st.caption(f"Data: {src} · {len(prices)} rows · {prices.index[0].date()} → {prices.index[-1].date()}")
 
     with st.spinner("Running walk-forward, permutation, Monte-Carlo, CPCV…"):

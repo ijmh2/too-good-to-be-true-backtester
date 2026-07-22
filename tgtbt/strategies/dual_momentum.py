@@ -24,7 +24,12 @@ class DualMomentum(Strategy):
         # One-hot the relative-momentum winner, but only if it clears absolute momentum (>0).
         # All-NaN warm-up rows give row_max=NaN -> no match -> stay in cash (all-zero row).
         winner = mom.eq(row_max, axis=0) & mom.gt(0)
-        return winner.astype(float).reindex(columns=prices.columns).fillna(0.0)
+        winner = winner.astype(float)
+        # Exact ties (two assets sharing the max) would otherwise sum to >1 and lever up;
+        # split the allocation equally so each row's weights sum to at most 1.
+        row_sums = winner.sum(axis=1)
+        weights = winner.div(row_sums.where(row_sums != 0, 1.0), axis=0)
+        return weights.reindex(columns=prices.columns).fillna(0.0)
 
 
 def make_dual_momentum(**params) -> DualMomentum:

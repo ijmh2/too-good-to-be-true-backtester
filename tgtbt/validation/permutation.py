@@ -6,8 +6,8 @@ weights — so exposure, leverage and turnover are held fixed — but destroy th
 with returns, then recompute performance many times to build a null distribution.
 
 - method="circular": roll the whole weight series by a random offset. Preserves the
-  autocorrelation and turnover of the positions *exactly*; only the phase relative to
-  returns is randomised. This is the honest "random-timing" null.
+  autocorrelation and turnover of the positions (up to the single wrap-around seam); only the
+  phase relative to returns is randomised. This is the honest "random-timing" null.
 - method="shuffle": independently permute the weight rows (a harsher null that also breaks
   position autocorrelation).
 

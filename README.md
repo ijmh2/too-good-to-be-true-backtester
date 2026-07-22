@@ -90,9 +90,12 @@ card.figure().savefig("scorecard.png")
 Write a new strategy by subclassing `Strategy` and implementing one method,
 `generate_weights(prices) -> weights`, using only backward-looking windows.
 
-## Interactive UI
+## Interactive UIs
 
-An interactive front-end runs the whole gauntlet from the browser — no code per run:
+Two front-ends, for two purposes.
+
+**1. Local Streamlit app** — for your own research, including *uploading arbitrary strategy
+scripts*:
 
 ```bash
 pip install -e ".[ui]"
@@ -103,8 +106,26 @@ Pick a built-in strategy **or upload your own script**, choose a universe, dates
 assumption and split, hit **Run the gauntlet**, and it renders the verdict scorecard with
 PNG / markdown export. An uploaded strategy just needs three module-level names —
 `STRATEGY`, `FACTORY`, `GRID` — shown in [`app/strategy_template.py`](app/strategy_template.py).
-(Uploaded scripts execute locally in-process, so only run ones you trust — same trust model
-as a notebook.)
+(Uploaded scripts execute in-process, so only run ones you trust — same trust model as a
+notebook. This is why the *public* web app below never accepts code.)
+
+**2. Deployable web app** — a Next.js frontend (Vercel) over a FastAPI backend, for a public,
+shareable URL:
+
+```
+web/   Next.js 15 + React 19 UI  → deploy on Vercel      (see web/README.md)
+api/   FastAPI service           → deploy on any Docker host (see api/README.md, render.yaml)
+```
+
+The web app is **safe by construction**: callers select a built-in strategy and *parameter
+values* — no user code is ever executed. The heavy Python compute (walk-forward, permutation,
+Monte-Carlo, CSCV) runs on the API host; Vercel serves the interactive UI (verdict, metric
+tiles, a live equity chart, and the rendered scorecard). Run both locally with:
+
+```bash
+uvicorn api.main:app --port 8000            # terminal 1 (backend)
+cd web && npm install && npm run dev        # terminal 2 (frontend → http://localhost:3000)
+```
 
 ## Layout
 
@@ -118,10 +139,13 @@ tgtbt/
   validation/        # walk-forward, robustness surface, permutation, Monte-Carlo,
                      #   deflated Sharpe (PSR/DSR), CSCV -> PBO
   reporting/         # chart builders + the composed overfit scorecard
-app/                 # Streamlit UI (app.py) + uploadable strategy template
+app/                 # local Streamlit UI (app.py) + uploadable strategy template
+api/                 # FastAPI backend (built-ins only, no code execution) for the web app
+web/                 # Next.js + React frontend, deployable to Vercel
 examples/            # runnable end-to-end scripts
 tests/               # look-ahead leak test, engine correctness, validation-stat checks
 docs/                # committed example scorecard figures
+Dockerfile           # API image; render.yaml gives a one-click Render deploy
 ```
 
 ## Caveats (read these)

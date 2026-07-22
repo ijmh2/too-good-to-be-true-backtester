@@ -1,0 +1,100 @@
+/* Palette mirrors the Python reporting style (validated CVD-safe hues), light + dark. */
+:root {
+  --surface: #fcfcfb;
+  --page: #f9f9f7;
+  --card: #ffffff;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --border: rgba(11, 11, 11, 0.1);
+  --blue: #2a78d6;
+  --good: #0ca30c;
+  --warning: #fab219;
+  --critical: #d03b3b;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #1a1a19;
+    --page: #0d0d0d;
+    --card: #212120;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --border: rgba(255, 255, 255, 0.1);
+    --blue: #3987e5;
+    --good: #0ca30c;
+    --warning: #fab219;
+    --critical: #e66767;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { padding: 0; margin: 0; }
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 64px; }
+header.site { margin-bottom: 22px; }
+header.site h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -0.01em; }
+header.site p { margin: 0; color: var(--ink-2); font-size: 14px; max-width: 760px; }
+
+.layout { display: grid; grid-template-columns: 320px 1fr; gap: 22px; align-items: start; }
+@media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+}
+.card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 0 0 14px; }
+
+label.field { display: block; margin-bottom: 14px; font-size: 13px; color: var(--ink-2); }
+label.field span { display: block; margin-bottom: 4px; font-weight: 600; color: var(--ink); }
+label.field small { font-weight: 400; color: var(--muted); }
+input, select {
+  width: 100%; padding: 8px 10px; font-size: 14px; font-family: inherit;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 8px;
+}
+input[type="checkbox"] { width: auto; margin-right: 8px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+button.run {
+  width: 100%; margin-top: 6px; padding: 11px; font-size: 15px; font-weight: 700;
+  color: #fff; background: var(--blue); border: none; border-radius: 9px; cursor: pointer;
+}
+button.run:disabled { opacity: 0.5; cursor: not-allowed; }
+button.ghost {
+  padding: 7px 12px; font-size: 13px; font-weight: 600; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px; cursor: pointer;
+}
+
+.verdict { display: flex; align-items: center; gap: 12px; margin: 0 0 4px; }
+.verdict .badge { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
+.verdict.good .badge { color: var(--good); }
+.verdict.warning .badge { color: var(--warning); }
+.verdict.critical .badge { color: var(--critical); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 13px; color: var(--ink-2); margin-bottom: 16px; }
+.chip .ok { color: var(--good); } .chip .no { color: var(--critical); }
+
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 8px; }
+@media (max-width: 520px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.tile .k { font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+.tile .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.caption { font-size: 12px; color: var(--muted); margin: 10px 0 0; }
+.err { background: rgba(208, 59, 59, 0.1); border: 1px solid var(--critical); color: var(--critical); padding: 12px 14px; border-radius: 10px; font-size: 14px; }
+.scorecard-img { width: 100%; height: auto; border: 1px solid var(--border); border-radius: 10px; margin-top: 6px; }
+.spinner { color: var(--ink-2); font-size: 14px; padding: 40px 0; text-align: center; }
+.stack > * + * { margin-top: 20px; }

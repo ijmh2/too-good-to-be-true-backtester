@@ -39,10 +39,16 @@ def sharpe(returns: pd.Series, rf: float = 0.0) -> float:
 
 
 def sortino(returns: pd.Series, rf: float = 0.0) -> float:
-    """Annualised Sortino ratio (downside deviation in the denominator)."""
+    """Annualised Sortino ratio.
+
+    Uses the canonical target semi-deviation: the sum of squared downside returns divided by
+    the *total* number of periods (up days contribute zero), not by the count of down days.
+    """
     excess = returns.dropna() - rf / TRADING_DAYS
+    if len(excess) == 0:
+        return np.nan
     downside = excess[excess < 0]
-    dd = np.sqrt((downside**2).mean()) if len(downside) else np.nan
+    dd = np.sqrt((downside**2).sum() / len(excess)) if len(downside) else np.nan
     if not dd or np.isnan(dd):
         return np.nan
     return float(excess.mean() / dd * np.sqrt(TRADING_DAYS))

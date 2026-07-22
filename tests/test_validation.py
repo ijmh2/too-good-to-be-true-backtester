@@ -125,6 +125,16 @@ def test_dual_momentum_handles_warmup_and_is_single_asset():
     assert (w.sum(axis=1) <= 1.0 + 1e-9).all()       # never levered
 
 
+def test_dual_momentum_ties_do_not_lever():
+    # Two identical price columns tie exactly every day -> must split 50/50, never sum to 2.
+    base = synthetic_prices("A", 400, seed=1)["A"]
+    px = pd.DataFrame({"A": base.values, "B": base.values}, index=base.index)
+    w = DualMomentum(lookback=100).generate_weights(px)
+    assert (w.sum(axis=1) <= 1.0 + 1e-9).all()
+    invested = w.sum(axis=1) > 0
+    assert (w[invested].sum(axis=1).round(6) == 1.0).all()  # fully invested rows sum to 1
+
+
 def test_deflated_from_trials_keys():
     px = _prices()
     mat = config_returns(make_trend_vt, {"trend_window": [50, 100, 150]}, px, FREE)

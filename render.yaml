@@ -1,0 +1,12 @@
+# One-click deploy of the API on Render (https://render.com). Point Render at this repo;
+# it reads this file. The frontend deploys separately on Vercel (see web/README.md).
+services:
+  - type: web
+    name: tgtbt-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8000"
