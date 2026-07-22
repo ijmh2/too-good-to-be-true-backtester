@@ -21,7 +21,6 @@ import pandas as pd
 
 from tgtbt import metrics
 from tgtbt.costs import CostModel
-from tgtbt.data import to_returns
 from tgtbt.reporting import plots
 from tgtbt.reporting import style as S
 from tgtbt.strategies.base import Strategy
@@ -207,12 +206,20 @@ def run_scorecard(
     deflated = deflated_sharpe_from_trials(trial_matrix)
     pbo = cscv_pbo(trial_matrix, n_splits=pbo_splits)
 
-    # Parameter surface: pivot the two most-varied parameters, others held mid-grid.
-    varied = [k for k, v in grid.items() if len(v) > 1]
-    two = (varied + [k for k in grid if k not in varied])[:2]
-    reduced = {k: (grid[k] if k in two else [grid[k][len(grid[k]) // 2]]) for k in grid}
-    surface = parameter_surface(factory, reduced, prices, cost_model=cost_model)
-    pivot = surface.pivot(index=two[0], columns=two[1], values="score")
+    # Parameter surface. With >=2 params, pivot the two most-varied (others held mid-grid);
+    # with a single param, render an N x 1 robustness strip so any grid shape works.
+    keys = list(grid)
+    varied = [k for k in keys if len(grid[k]) > 1]
+    if len(keys) >= 2:
+        two = (varied + [k for k in keys if k not in varied])[:2]
+        reduced = {k: (grid[k] if k in two else [grid[k][len(grid[k]) // 2]]) for k in grid}
+        surface = parameter_surface(factory, reduced, prices, cost_model=cost_model)
+        pivot = surface.pivot(index=two[0], columns=two[1], values="score")
+    else:
+        k = keys[0] if keys else "config"
+        surface = parameter_surface(factory, grid or {k: [None]}, prices, cost_model=cost_model)
+        pivot = surface.set_index(k)[["score"]]
+        pivot.columns = pd.Index(["Sharpe"], name="")
 
     card = Scorecard(
         strategy_name=strategy.name,

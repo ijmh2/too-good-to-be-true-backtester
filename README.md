@@ -90,6 +90,22 @@ card.figure().savefig("scorecard.png")
 Write a new strategy by subclassing `Strategy` and implementing one method,
 `generate_weights(prices) -> weights`, using only backward-looking windows.
 
+## Interactive UI
+
+An interactive front-end runs the whole gauntlet from the browser — no code per run:
+
+```bash
+pip install -e ".[ui]"
+streamlit run app/app.py
+```
+
+Pick a built-in strategy **or upload your own script**, choose a universe, dates, cost
+assumption and split, hit **Run the gauntlet**, and it renders the verdict scorecard with
+PNG / markdown export. An uploaded strategy just needs three module-level names —
+`STRATEGY`, `FACTORY`, `GRID` — shown in [`app/strategy_template.py`](app/strategy_template.py).
+(Uploaded scripts execute locally in-process, so only run ones you trust — same trust model
+as a notebook.)
+
 ## Layout
 
 ```
@@ -102,6 +118,7 @@ tgtbt/
   validation/        # walk-forward, robustness surface, permutation, Monte-Carlo,
                      #   deflated Sharpe (PSR/DSR), CSCV -> PBO
   reporting/         # chart builders + the composed overfit scorecard
+app/                 # Streamlit UI (app.py) + uploadable strategy template
 examples/            # runnable end-to-end scripts
 tests/               # look-ahead leak test, engine correctness, validation-stat checks
 docs/                # committed example scorecard figures
