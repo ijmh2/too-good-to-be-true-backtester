@@ -94,20 +94,27 @@ Write a new strategy by subclassing `Strategy` and implementing one method,
 
 Two front-ends, for two purposes.
 
-**1. Local Streamlit app** — for your own research, including *uploading arbitrary strategy
-scripts*:
+**1. Local Streamlit app** — for your own research, including *uploading your own strategy
+code and your own price data*:
 
 ```bash
 pip install -e ".[ui]"
 streamlit run app/app.py
 ```
 
-Pick a built-in strategy **or upload your own script**, choose a universe, dates, cost
-assumption and split, hit **Run the gauntlet**, and it renders the verdict scorecard with
-PNG / markdown export. An uploaded strategy just needs three module-level names —
-`STRATEGY`, `FACTORY`, `GRID` — shown in [`app/strategy_template.py`](app/strategy_template.py).
-(Uploaded scripts execute in-process, so only run ones you trust — same trust model as a
-notebook. This is why the *public* web app below never accepts code.)
+Pick a built-in strategy **or upload your own script**, and a universe of **Yahoo Finance
+tickers or your own uploaded CSV/Parquet price data**, set the cost assumption and IS/OOS
+split, hit **Run the gauntlet**, and it renders the verdict scorecard with PNG / markdown
+export.
+
+- An uploaded strategy needs three module-level names — `STRATEGY`, `FACTORY`, `GRID` —
+  shown in [`app/strategy_template.py`](app/strategy_template.py). (Uploaded scripts execute
+  in-process, so only run ones you trust — same trust model as a notebook. This is why the
+  *public* web app below never accepts code.)
+- Uploaded price data just needs a date column (`date`/`datetime`/`timestamp`/`time`, or the
+  first column) plus one numeric column per asset — column headers become the asset names.
+  Parsing is pure data handling, no code execution. Download an example from the sidebar to
+  see the expected shape. See [`app/data_upload.py`](app/data_upload.py).
 
 **2. Deployable web app** — a Next.js frontend (Vercel) over a FastAPI backend, for a public,
 shareable URL:

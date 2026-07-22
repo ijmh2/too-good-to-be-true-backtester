@@ -1,23 +1,29 @@
 """too-good-to-be-true-backtester — interactive UI.
 
-Point it at a strategy (a built-in, or your own uploaded script) and it runs the full
-overfit gauntlet and renders the verdict scorecard. Launch with:
+Point it at a strategy (a built-in, or your own uploaded script) and a universe (Yahoo
+Finance tickers, or your own uploaded price data) and it runs the full overfit gauntlet and
+renders the verdict scorecard. Launch with:
 
     pip install -e ".[ui]"
     streamlit run app/app.py
 
 An uploaded strategy is arbitrary Python executed locally in this process — only run scripts
-you trust (this is a personal research tool, same trust model as a notebook).
+you trust (this is a personal research tool, same trust model as a notebook). Uploaded price
+data is just parsed as a CSV/Parquet table — no code execution there.
 """
 
 from __future__ import annotations
 
 import importlib.util
 import io
+import sys
 import tempfile
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # for `import data_upload` below
 
 from tgtbt.costs import CostModel
 from tgtbt.data import get_prices, synthetic_prices
@@ -32,6 +38,8 @@ from tgtbt.strategies import (
     make_mean_reversion,
     make_trend_vt,
 )
+
+from data_upload import MIN_ROWS, RECOMMENDED_ROWS, example_csv_bytes, parse_uploaded_prices
 
 # --- built-in strategy registry: (instance builder, factory, grid, default tickers) ---
 BUILTINS = {
@@ -63,7 +71,7 @@ VERDICT_UI = {
 
 
 @st.cache_data(show_spinner=False)
-def load_prices(tickers: tuple[str, ...], start: str, end: str) -> tuple[pd.DataFrame, str]:
+def load_ticker_prices(tickers: tuple[str, ...], start: str, end: str) -> tuple[pd.DataFrame, str]:
     try:
         px = get_prices(list(tickers), start=start, end=end)
         if px.dropna(how="all").shape[0] > 250:
@@ -75,6 +83,12 @@ def load_prices(tickers: tuple[str, ...], start: str, end: str) -> tuple[pd.Data
             [synthetic_prices(t, n_days=n, seed=i) for i, t in enumerate(tickers)], axis=1
         )
         return px, f"synthetic fallback ({exc})"
+
+
+@st.cache_data(show_spinner=False)
+def parse_prices_cached(file_bytes: bytes, filename: str) -> pd.DataFrame:
+    """Cache the parse by (file contents, filename) so re-runs don't re-parse unnecessarily."""
+    return parse_uploaded_prices(file_bytes, filename)
 
 
 def load_uploaded_module(uploaded) -> object:
@@ -129,7 +143,40 @@ with st.sidebar:
                 st.error(f"Could not load script: {exc}")
 
     st.header("Universe & period")
-    tickers_str = st.text_input("Tickers (comma-separated)", tickers_default)
+    data_source = st.radio("Data source", ["Tickers (Yahoo Finance)", "Upload CSV / Parquet"],
+                           horizontal=True)
+
+    tickers_str = ""
+    uploaded_prices = None
+    data_filename = None
+
+    if data_source == "Tickers (Yahoo Finance)":
+        tickers_str = st.text_input("Tickers (comma-separated)", tickers_default)
+    else:
+        st.caption(
+            "A date column (`date`/`datetime`/`timestamp`/`time`, or the first column) plus "
+            "one numeric column per asset. Column headers become the asset names."
+        )
+        data_file = st.file_uploader("Price data", type=["csv", "parquet"])
+        st.download_button("Download example CSV", example_csv_bytes(),
+                           file_name="example_prices.csv", mime="text/csv")
+        if data_file is not None:
+            try:
+                uploaded_prices = parse_prices_cached(data_file.getvalue(), data_file.name)
+                data_filename = data_file.name
+                n_rows, n_cols = uploaded_prices.shape
+                msg = (f"Loaded {n_cols} asset(s), {n_rows} rows, "
+                       f"{uploaded_prices.index[0].date()} → {uploaded_prices.index[-1].date()}")
+                if n_rows < RECOMMENDED_ROWS:
+                    st.warning(msg + f" — fewer than {RECOMMENDED_ROWS} rows, so "
+                                     "walk-forward/CPCV results may be noisy.")
+                else:
+                    st.success(msg)
+                st.caption("Columns: " + ", ".join(str(c) for c in uploaded_prices.columns))
+                st.caption("Adjust Start/End below to match this range if needed.")
+            except Exception as exc:  # noqa: BLE001
+                st.error(f"Could not parse file: {exc}")
+
     col_a, col_b = st.columns(2)
     start = col_a.text_input("Start", "2010-01-01")
     end = col_b.text_input("End", "2024-12-31")
@@ -142,17 +189,30 @@ with st.sidebar:
     boot_n = 300 if fast else 1000
     n_folds = st.slider("Walk-forward folds", 3, 8, 5)
 
+    data_ready = data_source == "Tickers (Yahoo Finance)" or uploaded_prices is not None
     run = st.button("Run the gauntlet", type="primary", use_container_width=True,
-                    disabled=strategy is None)
+                    disabled=strategy is None or not data_ready)
 
 if strategy is None:
     st.info("Pick a built-in strategy or upload a script in the sidebar, then **Run the gauntlet**.")
     st.stop()
+if data_source == "Upload CSV / Parquet" and uploaded_prices is None:
+    st.info("Upload a price file in the sidebar (or switch to Yahoo Finance tickers), "
+            "then **Run the gauntlet**.")
+    st.stop()
 
 if run:
-    tickers = tuple(t.strip().upper() for t in tickers_str.split(",") if t.strip())
     with st.spinner("Loading prices…"):
-        prices, src = load_prices(tickers, start, end)
+        if data_source == "Tickers (Yahoo Finance)":
+            tickers = tuple(t.strip().upper() for t in tickers_str.split(",") if t.strip())
+            prices, src = load_ticker_prices(tickers, start, end)
+        else:
+            prices = uploaded_prices.loc[pd.Timestamp(start):pd.Timestamp(end)]
+            if prices.shape[0] < MIN_ROWS:
+                st.error(f"Only {prices.shape[0]} rows between {start} and {end} — widen the "
+                         f"date range (need >= {MIN_ROWS}).")
+                st.stop()
+            src = f"uploaded file ({data_filename})"
         benchmark = BuyAndHold().backtest(prices, cost_model=CostModel(cost_bps)).net_returns
     st.caption(f"Data: {src} · {len(prices)} rows · {prices.index[0].date()} → {prices.index[-1].date()}")
 
