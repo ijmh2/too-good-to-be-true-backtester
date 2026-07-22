@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import EquityChart from "@/components/EquityChart";
 import {
+  getConfig,
+  getExampleCsv,
   getStrategies,
   runBacktest,
   type RunResult,
@@ -20,11 +22,33 @@ const VERDICT_ICON: Record<string, string> = {
   "likely overfit": "🚩",
 };
 
+function readFileAsText(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file);
+  });
+}
+
 export default function Page() {
+  const [allowUploads, setAllowUploads] = useState(false);
+
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
   const [params, setParams] = useState<Record<string, number>>({});
+
+  const [strategySource, setStrategySource] = useState<"builtin" | "upload">("builtin");
+  const [strategyCode, setStrategyCode] = useState<string | null>(null);
+  const [strategyFileName, setStrategyFileName] = useState<string | null>(null);
+  const [strategyCodeErr, setStrategyCodeErr] = useState<string | null>(null);
+
+  const [dataSource, setDataSource] = useState<"tickers" | "upload">("tickers");
   const [tickers, setTickers] = useState("SPY");
+  const [priceCsv, setPriceCsv] = useState<string | null>(null);
+  const [priceFileName, setPriceFileName] = useState<string | null>(null);
+  const [priceCsvErr, setPriceCsvErr] = useState<string | null>(null);
+
   const [start, setStart] = useState("2010-01-01");
   const [end, setEnd] = useState("2024-12-31");
   const [split, setSplit] = useState("2021-12-31");
@@ -43,6 +67,9 @@ export default function Page() {
   );
 
   useEffect(() => {
+    getConfig()
+      .then((c) => setAllowUploads(c.allow_uploads))
+      .catch(() => setAllowUploads(false)); // treat an unreachable /config as "uploads off"
     getStrategies()
       .then((list) => {
         setStrategies(list);
@@ -55,20 +82,63 @@ export default function Page() {
   function selectStrategy(s: Strategy) {
     setSelectedId(s.id);
     setParams(Object.fromEntries(s.params.map((p) => [p.name, p.default])));
-    setTickers(s.default_tickers);
+    if (dataSource === "tickers") setTickers(s.default_tickers);
     setResult(null);
     setError(null);
   }
 
+  async function onStrategyFile(file: File | undefined) {
+    setStrategyCodeErr(null);
+    if (!file) return;
+    try {
+      const text = await readFileAsText(file);
+      setStrategyCode(text);
+      setStrategyFileName(file.name);
+    } catch (e: any) {
+      setStrategyCodeErr(String(e.message || e));
+    }
+  }
+
+  async function onPriceFile(file: File | undefined) {
+    setPriceCsvErr(null);
+    if (!file) return;
+    try {
+      const text = await readFileAsText(file);
+      setPriceCsv(text);
+      setPriceFileName(file.name);
+    } catch (e: any) {
+      setPriceCsvErr(String(e.message || e));
+    }
+  }
+
+  async function downloadExample() {
+    try {
+      const { filename, content } = await getExampleCsv();
+      const blob = new Blob([content], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setPriceCsvErr(String(e.message || e));
+    }
+  }
+
+  const strategyReady = strategySource === "builtin" ? !!selected : !!strategyCode;
+  const dataReady = dataSource === "tickers" ? tickers.trim().length > 0 : !!priceCsv;
+
   async function run() {
-    if (!selected) return;
+    if (!strategyReady || !dataReady) return;
     setLoading(true);
     setError(null);
     try {
       const res = await runBacktest({
-        strategy_id: selected.id,
-        params,
-        tickers,
+        ...(strategySource === "builtin"
+          ? { strategy_id: selected!.id, params }
+          : { strategy_code: strategyCode! }),
+        ...(dataSource === "tickers" ? { tickers } : { price_csv: priceCsv! }),
         start,
         end,
         split,
@@ -109,51 +179,139 @@ export default function Page() {
         {/* ---- Controls ---- */}
         <div className="card">
           <h2>Strategy</h2>
-          <label className="field">
-            <span>Strategy</span>
-            <select
-              value={selectedId}
-              onChange={(e) => {
-                const s = strategies.find((x) => x.id === e.target.value);
-                if (s) selectStrategy(s);
-              }}
-            >
-              {strategies.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          {selected && (
-            <p className="caption" style={{ marginTop: -6, marginBottom: 14 }}>
-              {selected.description}
-            </p>
+          {allowUploads && (
+            <label className="field">
+              <span>Source</span>
+              <select
+                value={strategySource}
+                onChange={(e) => {
+                  setStrategySource(e.target.value as "builtin" | "upload");
+                  setResult(null);
+                }}
+              >
+                <option value="builtin">Built-in</option>
+                <option value="upload">Upload your own code</option>
+              </select>
+            </label>
           )}
 
-          {selected?.params.map((p) => (
-            <label className="field" key={p.name}>
-              <span>
-                {p.label} <small>({params[p.name]})</small>
-              </span>
-              <input
-                type="number"
-                value={params[p.name] ?? p.default}
-                min={p.min}
-                max={p.max}
-                step={p.step}
-                onChange={(e) =>
-                  setParams({ ...params, [p.name]: Number(e.target.value) })
-                }
-              />
-            </label>
-          ))}
+          {strategySource === "builtin" ? (
+            <>
+              <label className="field">
+                <span>Strategy</span>
+                <select
+                  value={selectedId}
+                  onChange={(e) => {
+                    const s = strategies.find((x) => x.id === e.target.value);
+                    if (s) selectStrategy(s);
+                  }}
+                >
+                  {strategies.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {selected && (
+                <p className="caption" style={{ marginTop: -6, marginBottom: 14 }}>
+                  {selected.description}
+                </p>
+              )}
+              {selected?.params.map((p) => (
+                <label className="field" key={p.name}>
+                  <span>
+                    {p.label} <small>({params[p.name]})</small>
+                  </span>
+                  <input
+                    type="number"
+                    value={params[p.name] ?? p.default}
+                    min={p.min}
+                    max={p.max}
+                    step={p.step}
+                    onChange={(e) =>
+                      setParams({ ...params, [p.name]: Number(e.target.value) })
+                    }
+                  />
+                </label>
+              ))}
+            </>
+          ) : (
+            <>
+              <p className="caption" style={{ marginTop: -6 }}>
+                A <code>.py</code> file defining module-level <code>STRATEGY</code>,{" "}
+                <code>FACTORY</code>, <code>GRID</code> — see{" "}
+                <a
+                  href="https://github.com/ijmh2/too-good-to-be-true-backtester/blob/main/app/strategy_template.py"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  strategy_template.py
+                </a>
+                . Runs local-only, in-process — only upload code you trust.
+              </p>
+              <label className="field">
+                <span>Strategy .py</span>
+                <input
+                  type="file"
+                  accept=".py"
+                  onChange={(e) => onStrategyFile(e.target.files?.[0])}
+                />
+              </label>
+              {strategyFileName && !strategyCodeErr && (
+                <p className="caption">Loaded {strategyFileName}</p>
+              )}
+              {strategyCodeErr && <div className="err">{strategyCodeErr}</div>}
+            </>
+          )}
 
           <h2 style={{ marginTop: 20 }}>Universe &amp; period</h2>
-          <label className="field">
-            <span>Tickers <small>(comma-separated)</small></span>
-            <input value={tickers} onChange={(e) => setTickers(e.target.value)} />
-          </label>
+          {allowUploads && (
+            <label className="field">
+              <span>Data source</span>
+              <select
+                value={dataSource}
+                onChange={(e) => {
+                  setDataSource(e.target.value as "tickers" | "upload");
+                  setResult(null);
+                }}
+              >
+                <option value="tickers">Tickers (Yahoo Finance)</option>
+                <option value="upload">Upload CSV</option>
+              </select>
+            </label>
+          )}
+
+          {dataSource === "tickers" ? (
+            <label className="field">
+              <span>Tickers <small>(comma-separated)</small></span>
+              <input value={tickers} onChange={(e) => setTickers(e.target.value)} />
+            </label>
+          ) : (
+            <>
+              <p className="caption" style={{ marginTop: -6 }}>
+                A date column (<code>date</code>/<code>datetime</code>/<code>timestamp</code>/
+                <code>time</code>, or the first column) plus one numeric column per asset.
+                Column headers become the asset names.
+              </p>
+              <label className="field">
+                <span>Price data (CSV)</span>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => onPriceFile(e.target.files?.[0])}
+                />
+              </label>
+              {priceFileName && !priceCsvErr && (
+                <p className="caption">Loaded {priceFileName}</p>
+              )}
+              {priceCsvErr && <div className="err">{priceCsvErr}</div>}
+              <button className="ghost" type="button" onClick={downloadExample} style={{ marginBottom: 14 }}>
+                Download example CSV
+              </button>
+            </>
+          )}
+
           <div className="row">
             <label className="field">
               <span>Start</span>
@@ -199,7 +357,7 @@ export default function Page() {
             <span style={{ margin: 0 }}>Fast mode (fewer resamples)</span>
           </label>
 
-          <button className="run" onClick={run} disabled={loading || !selected}>
+          <button className="run" onClick={run} disabled={loading || !strategyReady || !dataReady}>
             {loading ? "Running the gauntlet…" : "Run the gauntlet"}
           </button>
         </div>

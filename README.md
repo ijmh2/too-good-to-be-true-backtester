@@ -90,49 +90,40 @@ card.figure().savefig("scorecard.png")
 Write a new strategy by subclassing `Strategy` and implementing one method,
 `generate_weights(prices) -> weights`, using only backward-looking windows.
 
-## Interactive UIs
+## Interactive UI
 
-Two front-ends, for two purposes.
-
-**1. Local Streamlit app** — for your own research, including *uploading your own strategy
-code and your own price data*:
-
-```bash
-pip install -e ".[ui]"
-streamlit run app/app.py
-```
-
-Pick a built-in strategy **or upload your own script**, and a universe of **Yahoo Finance
-tickers or your own uploaded CSV/Parquet price data**, set the cost assumption and IS/OOS
-split, hit **Run the gauntlet**, and it renders the verdict scorecard with PNG / markdown
-export.
-
-- An uploaded strategy needs three module-level names — `STRATEGY`, `FACTORY`, `GRID` —
-  shown in [`app/strategy_template.py`](app/strategy_template.py). (Uploaded scripts execute
-  in-process, so only run ones you trust — same trust model as a notebook. This is why the
-  *public* web app below never accepts code.)
-- Uploaded price data just needs a date column (`date`/`datetime`/`timestamp`/`time`, or the
-  first column) plus one numeric column per asset — column headers become the asset names.
-  Parsing is pure data handling, no code execution. Download an example from the sidebar to
-  see the expected shape. See [`app/data_upload.py`](app/data_upload.py).
-
-**2. Deployable web app** — a Next.js frontend (Vercel) over a FastAPI backend, for a public,
-shareable URL:
+One app — a Next.js frontend over a FastAPI backend — with two modes:
 
 ```
-web/   Next.js 15 + React 19 UI  → deploy on Vercel      (see web/README.md)
+web/   Next.js 15 + React 19 UI  → deploy on Vercel
 api/   FastAPI service           → deploy on any Docker host (see api/README.md, render.yaml)
 ```
 
-The web app is **safe by construction**: callers select a built-in strategy and *parameter
-values* — no user code is ever executed. The heavy Python compute (walk-forward, permutation,
-Monte-Carlo, CSCV) runs on the API host; Vercel serves the interactive UI (verdict, metric
-tiles, a live equity chart, and the rendered scorecard). Run both locally with:
+**Public mode (default).** Callers pick a built-in strategy and *parameter values*, and a
+ticker universe — no user code is ever executed. This is what the public deploy runs. Try it
+locally:
 
 ```bash
 uvicorn api.main:app --port 8000            # terminal 1 (backend)
 cd web && npm install && npm run dev        # terminal 2 (frontend → http://localhost:3000)
 ```
+
+**Local upload mode.** Set one env var to additionally test **your own strategy code and your
+own price data** — no separate app, same UI:
+
+```bash
+TGTBT_ALLOW_UPLOADS=1 uvicorn api.main:app --port 8000
+```
+
+The frontend detects this via `/config` and reveals two extra options: upload a `.py` file
+defining `STRATEGY`, `FACTORY`, `GRID` (see [`app/strategy_template.py`](app/strategy_template.py)),
+and/or upload a CSV of your own prices (a date column + one numeric column per asset; headers
+become the asset names — there's a "download example CSV" link in the UI).
+
+This flag is **off by default and never set** in the Docker image or `render.yaml`, so the
+public deployment can't be tricked into running arbitrary code — only enable it when you're
+the only one who can reach the server (e.g. on `localhost`). Uploaded code executes
+in-process, same trust model as running a notebook cell — only upload scripts you trust.
 
 ## Layout
 
@@ -146,8 +137,8 @@ tgtbt/
   validation/        # walk-forward, robustness surface, permutation, Monte-Carlo,
                      #   deflated Sharpe (PSR/DSR), CSCV -> PBO
   reporting/         # chart builders + the composed overfit scorecard
-app/                 # local Streamlit UI (app.py) + uploadable strategy template
-api/                 # FastAPI backend (built-ins only, no code execution) for the web app
+app/                 # strategy_template.py (upload contract) + AGENT_PROMPT.md
+api/                 # FastAPI backend — public mode + gated local upload mode
 web/                 # Next.js + React frontend, deployable to Vercel
 examples/            # runnable end-to-end scripts
 tests/               # look-ahead leak test, engine correctness, validation-stat checks

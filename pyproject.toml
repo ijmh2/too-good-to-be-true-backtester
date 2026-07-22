@@ -12,6 +12,7 @@ license = { text = "MIT" }
 dependencies = [
     "pandas>=2.0",
     "numpy>=1.24",
+    "scipy>=1.10",
     "yfinance>=0.2.40",
     "matplotlib>=3.7",
     "statsmodels>=0.14",
@@ -20,7 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7"]
-ui = ["streamlit>=1.30"]
+api = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "pydantic>=2"]
 
 [tool.setuptools.packages.find]
 include = ["tgtbt*"]

@@ -4,6 +4,11 @@ A Next.js (App Router) frontend for the overfit gauntlet. Pick a built-in strate
 parameters, choose a universe/period/cost, and it renders the verdict, metric tiles, an
 interactive equity curve, and the full scorecard figure — all from the FastAPI backend.
 
+If the backend is running with `TGTBT_ALLOW_UPLOADS=1` (local dev only — see
+[`../api/README.md`](../api/README.md)), the UI auto-detects it via `/config` and reveals two
+extra options: upload your own strategy `.py` and/or your own price CSV. On a public
+deployment (where that env var is never set) those options simply don't appear.
+
 ## Run locally
 
 The backend must be running first (see [`../api/README.md`](../api/README.md)).

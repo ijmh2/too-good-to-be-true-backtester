@@ -40,9 +40,11 @@ export type RunResult = {
 };
 
 export type RunRequest = {
-  strategy_id: string;
-  params: Record<string, number>;
-  tickers: string;
+  strategy_id?: string;
+  params?: Record<string, number>;
+  tickers?: string;
+  strategy_code?: string;
+  price_csv?: string;
   start: string;
   end: string;
   split: string;
@@ -51,7 +53,21 @@ export type RunRequest = {
   n_folds: number;
 };
 
+export type Config = { allow_uploads: boolean };
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
+export async function getConfig(): Promise<Config> {
+  const res = await fetch(`${API_URL}/config`);
+  if (!res.ok) throw new Error(`Could not load config (${res.status})`);
+  return res.json();
+}
+
+export async function getExampleCsv(): Promise<{ filename: string; content: string }> {
+  const res = await fetch(`${API_URL}/example-csv`);
+  if (!res.ok) throw new Error(`Could not load example CSV (${res.status})`);
+  return res.json();
+}
 
 export async function getStrategies(): Promise<Strategy[]> {
   const res = await fetch(`${API_URL}/strategies`);
