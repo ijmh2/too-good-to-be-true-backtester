@@ -31,6 +31,34 @@ function readFileAsText(file: File): Promise<string> {
   });
 }
 
+// A working example, editable in place — select-all and paste your own strategy over it.
+const STRATEGY_CODE_TEMPLATE = `import pandas as pd
+from tgtbt.strategies.base import Strategy
+
+class MyStrategy(Strategy):
+    """Example: hold the asset only when it's above its N-day moving average."""
+
+    def __init__(self, window: int = 100):
+        self.window = window
+        self.name = f"my_strategy(window={window})"
+
+    def generate_weights(self, prices: pd.DataFrame) -> pd.DataFrame:
+        px = prices.iloc[:, 0]
+        ma = px.rolling(self.window, min_periods=self.window).mean()
+        w = (px > ma).astype(float).fillna(0.0)  # backward-looking only -> no look-ahead
+        return w.to_frame(prices.columns[0]).reindex(columns=prices.columns).fillna(0.0)
+
+
+def make(**params):
+    return MyStrategy(**params)
+
+
+# The UI reads exactly these three module-level names.
+STRATEGY = MyStrategy(window=100)
+FACTORY = make
+GRID = {"window": [20, 50, 100, 150, 200]}
+`;
+
 export default function Page() {
   const [allowUploads, setAllowUploads] = useState(false);
 
@@ -39,13 +67,13 @@ export default function Page() {
   const [params, setParams] = useState<Record<string, number>>({});
 
   const [strategySource, setStrategySource] = useState<"builtin" | "upload">("builtin");
-  const [strategyCode, setStrategyCode] = useState<string | null>(null);
+  const [strategyCode, setStrategyCode] = useState<string>(STRATEGY_CODE_TEMPLATE);
   const [strategyFileName, setStrategyFileName] = useState<string | null>(null);
   const [strategyCodeErr, setStrategyCodeErr] = useState<string | null>(null);
 
   const [dataSource, setDataSource] = useState<"tickers" | "upload">("tickers");
   const [tickers, setTickers] = useState("SPY");
-  const [priceCsv, setPriceCsv] = useState<string | null>(null);
+  const [priceCsv, setPriceCsv] = useState<string>("");
   const [priceFileName, setPriceFileName] = useState<string | null>(null);
   const [priceCsvErr, setPriceCsvErr] = useState<string | null>(null);
 
@@ -126,6 +154,17 @@ export default function Page() {
     }
   }
 
+  async function loadExampleIntoBox() {
+    setPriceCsvErr(null);
+    try {
+      const { content } = await getExampleCsv();
+      setPriceCsv(content);
+      setPriceFileName(null);
+    } catch (e: any) {
+      setPriceCsvErr(String(e.message || e));
+    }
+  }
+
   const strategyReady = strategySource === "builtin" ? !!selected : !!strategyCode;
   const dataReady = dataSource === "tickers" ? tickers.trim().length > 0 : !!priceCsv;
 
@@ -137,8 +176,8 @@ export default function Page() {
       const res = await runBacktest({
         ...(strategySource === "builtin"
           ? { strategy_id: selected!.id, params }
-          : { strategy_code: strategyCode! }),
-        ...(dataSource === "tickers" ? { tickers } : { price_csv: priceCsv! }),
+          : { strategy_code: strategyCode }),
+        ...(dataSource === "tickers" ? { tickers } : { price_csv: priceCsv }),
         start,
         end,
         split,
@@ -239,8 +278,8 @@ export default function Page() {
           ) : (
             <>
               <p className="caption" style={{ marginTop: -6 }}>
-                A <code>.py</code> file defining module-level <code>STRATEGY</code>,{" "}
-                <code>FACTORY</code>, <code>GRID</code> — see{" "}
+                Paste code defining module-level <code>STRATEGY</code>, <code>FACTORY</code>,{" "}
+                <code>GRID</code> — edit the example below, or clear it and paste your own (see{" "}
                 <a
                   href="https://github.com/ijmh2/too-good-to-be-true-backtester/blob/main/app/strategy_template.py"
                   target="_blank"
@@ -248,10 +287,19 @@ export default function Page() {
                 >
                   strategy_template.py
                 </a>
-                . Runs local-only, in-process — only upload code you trust.
+                ). Runs local-only, in-process — only paste code you trust.
               </p>
               <label className="field">
-                <span>Strategy .py</span>
+                <span>Strategy code</span>
+                <textarea
+                  className="code-textarea"
+                  spellCheck={false}
+                  value={strategyCode}
+                  onChange={(e) => setStrategyCode(e.target.value)}
+                />
+              </label>
+              <label className="field">
+                <span>…or load from a file</span>
                 <input
                   type="file"
                   accept=".py"
@@ -296,6 +344,16 @@ export default function Page() {
               </p>
               <label className="field">
                 <span>Price data (CSV)</span>
+                <textarea
+                  className="code-textarea small"
+                  spellCheck={false}
+                  value={priceCsv}
+                  onChange={(e) => setPriceCsv(e.target.value)}
+                  placeholder={"date,AssetA,AssetB\n2020-01-01,100.0,50.0\n2020-01-02,101.2,49.8\n..."}
+                />
+              </label>
+              <label className="field">
+                <span>…or load from a file</span>
                 <input
                   type="file"
                   accept=".csv"
@@ -306,9 +364,14 @@ export default function Page() {
                 <p className="caption">Loaded {priceFileName}</p>
               )}
               {priceCsvErr && <div className="err">{priceCsvErr}</div>}
-              <button className="ghost" type="button" onClick={downloadExample} style={{ marginBottom: 14 }}>
-                Download example CSV
-              </button>
+              <div className="row" style={{ marginBottom: 14 }}>
+                <button className="ghost" type="button" onClick={loadExampleIntoBox}>
+                  Paste example
+                </button>
+                <button className="ghost" type="button" onClick={downloadExample}>
+                  Download as file
+                </button>
+              </div>
             </>
           )}
 

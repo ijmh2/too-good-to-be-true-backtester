@@ -69,6 +69,15 @@ input, select {
 input[type="checkbox"] { width: auto; margin-right: 8px; }
 .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
+textarea.code-textarea {
+  width: 100%; padding: 10px 12px; font-size: 12.5px; line-height: 1.5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 8px;
+  resize: vertical; min-height: 220px; tab-size: 4;
+}
+textarea.code-textarea.small { min-height: 100px; }
+
 button.run {
   width: 100%; margin-top: 6px; padding: 11px; font-size: 15px; font-weight: 700;
   color: #fff; background: var(--blue); border: none; border-radius: 9px; cursor: pointer;
