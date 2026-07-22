@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import EquityChart from "@/components/EquityChart";
 import {
+  API_URL,
   getConfig,
   getExampleCsv,
   getStrategies,
   runBacktest,
+  type RunRequest,
   type RunResult,
   type Strategy,
 } from "@/lib/api";
@@ -61,6 +63,8 @@ GRID = {"window": [20, 50, 100, 150, 200]}
 
 export default function Page() {
   const [allowUploads, setAllowUploads] = useState(false);
+  const [apiChecked, setApiChecked] = useState(false);
+  const [apiOk, setApiOk] = useState(false);
 
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [selectedId, setSelectedId] = useState<string>("");
@@ -88,6 +92,8 @@ export default function Page() {
   const [result, setResult] = useState<RunResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [elapsedSec, setElapsedSec] = useState<number | null>(null);
+  const [lastRequest, setLastRequest] = useState<RunRequest | null>(null);
 
   const selected = useMemo(
     () => strategies.find((s) => s.id === selectedId),
@@ -96,8 +102,12 @@ export default function Page() {
 
   useEffect(() => {
     getConfig()
-      .then((c) => setAllowUploads(c.allow_uploads))
-      .catch(() => setAllowUploads(false)); // treat an unreachable /config as "uploads off"
+      .then((c) => {
+        setAllowUploads(c.allow_uploads);
+        setApiOk(true);
+      })
+      .catch(() => setAllowUploads(false)) // treat an unreachable /config as "uploads off"
+      .finally(() => setApiChecked(true));
     getStrategies()
       .then((list) => {
         setStrategies(list);
@@ -172,20 +182,25 @@ export default function Page() {
     if (!strategyReady || !dataReady) return;
     setLoading(true);
     setError(null);
+    setElapsedSec(null);
+    const body: RunRequest = {
+      ...(strategySource === "builtin"
+        ? { strategy_id: selected!.id, params }
+        : { strategy_code: strategyCode }),
+      ...(dataSource === "tickers" ? { tickers } : { price_csv: priceCsv }),
+      start,
+      end,
+      split,
+      cost_bps: costBps,
+      fast,
+      n_folds: folds,
+    };
+    setLastRequest(body);
+    const t0 = performance.now();
     try {
-      const res = await runBacktest({
-        ...(strategySource === "builtin"
-          ? { strategy_id: selected!.id, params }
-          : { strategy_code: strategyCode }),
-        ...(dataSource === "tickers" ? { tickers } : { price_csv: priceCsv }),
-        start,
-        end,
-        split,
-        cost_bps: costBps,
-        fast,
-        n_folds: folds,
-      });
+      const res = await runBacktest(body);
       setResult(res);
+      setElapsedSec((performance.now() - t0) / 1000);
     } catch (e: any) {
       setError(String(e.message || e));
     } finally {
@@ -195,6 +210,17 @@ export default function Page() {
 
   return (
     <div className="wrap">
+      <div className="statusbar">
+        <span className={`dot ${apiChecked ? (apiOk ? "ok" : "down") : ""}`} />
+        <span>api: {apiOk ? "reachable" : apiChecked ? "unreachable" : "checking…"}</span>
+        <span className="sep">|</span>
+        <code>{API_URL}</code>
+        <span className="sep">|</span>
+        <span className={`pill ${allowUploads ? "upload" : ""}`}>
+          {allowUploads ? "LOCAL UPLOAD MODE" : "PUBLIC MODE"}
+        </span>
+      </div>
+
       <header className="site">
         <h1>🚩 too-good-to-be-true-backtester</h1>
         <p>
@@ -441,6 +467,12 @@ export default function Page() {
           {result && !loading && (
             <div className="stack">
               <div>
+                <div className="runmeta">
+                  <span>data: {result.data_source}</span>
+                  {elapsedSec != null && <span>completed in {elapsedSec.toFixed(1)}s</span>}
+                  <span>n_folds: {folds}</span>
+                  <span>cost: {costBps}bps</span>
+                </div>
                 <div className={`verdict ${VERDICT_CLASS[result.verdict] || ""}`}>
                   <span className="badge">
                     {VERDICT_ICON[result.verdict]} {result.verdict.toUpperCase()}
@@ -477,6 +509,13 @@ export default function Page() {
               </div>
 
               <p className="caption">Data: {result.data_source}</p>
+
+              {lastRequest && (
+                <details className="payload">
+                  <summary>Request payload (POST {API_URL}/run)</summary>
+                  <pre>{JSON.stringify(redactPayload(lastRequest), null, 2)}</pre>
+                </details>
+              )}
             </div>
           )}
         </div>
@@ -487,6 +526,17 @@ export default function Page() {
 
 function fmt(v: number | null, nd = 2, suffix = ""): string {
   return v == null ? "—" : v.toFixed(nd) + suffix;
+}
+
+// Long code/CSV fields would otherwise dump kilobytes inline; show a preview + length instead.
+function redactPayload(req: RunRequest): Record<string, unknown> {
+  const truncate = (s: string, n = 200) =>
+    s.length > n ? `${s.slice(0, n)}… (${s.length} chars total)` : s;
+  return {
+    ...req,
+    ...(req.strategy_code ? { strategy_code: truncate(req.strategy_code) } : {}),
+    ...(req.price_csv ? { price_csv: truncate(req.price_csv) } : {}),
+  };
 }
 
 function Tile({ k, v }: { k: string; v: string }) {

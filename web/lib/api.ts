@@ -55,7 +55,7 @@ export type RunRequest = {
 
 export type Config = { allow_uploads: boolean };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 export async function getConfig(): Promise<Config> {
   const res = await fetch(`${API_URL}/config`);
