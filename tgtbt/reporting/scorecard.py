@@ -121,7 +121,13 @@ class Scorecard:
             ("Prob. backtest overfit", f"{self.pbo.pbo:.2f}"),
         ]
         if self.benchmark is not None and "beta" in f:
-            rows.insert(3, ("Beta vs benchmark", f"{f.get('beta', float('nan')):.2f}"))
+            # Alpha/beta answer "is this genuinely better *after* accounting for how much market
+            # exposure it takes" — the question a lower-total-return-than-buy-and-hold result
+            # otherwise leaves open. A verdict of "real edge" certifies the timing signal is
+            # statistically genuine; it does not claim the strategy out-earns a fully-invested
+            # benchmark, which a lower-beta strategy usually won't in a rising market.
+            rows.insert(3, ("Alpha vs benchmark (ann.)", f"{f.get('alpha_ann', float('nan'))*100:.1f}%"))
+            rows.insert(4, ("Beta vs benchmark", f"{f.get('beta', float('nan')):.2f}"))
         return rows
 
     def to_markdown(self) -> str:
