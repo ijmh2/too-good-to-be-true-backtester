@@ -57,6 +57,8 @@ def scorecard_to_dict(card, include_png: bool = True) -> dict:
             "max_drawdown_pct": _num(float(card.full_summary["max_drawdown"]) * 100, 1),
         },
         "split_date": str(pd.Timestamp(card.split_date).date()),
+        "n_trials": int(card.deflated.get("n_trials", 0)),
+        "n_rows": int(len(card.net_returns)),
         "equity": equity,
     }
 

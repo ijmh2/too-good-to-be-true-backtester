@@ -33,6 +33,8 @@ export type RunResult = {
     max_drawdown_pct: number | null;
   };
   split_date: string;
+  n_trials: number;
+  n_rows: number;
   equity: { dates: string[]; strategy: number[]; benchmark?: number[] };
   scorecard_png: string;
   data_source: string;

@@ -411,6 +411,21 @@ export default function Page() {
               <input value={end} onChange={(e) => setEnd(e.target.value)} />
             </label>
           </div>
+          <button
+            className="ghost"
+            type="button"
+            style={{ marginBottom: 14 }}
+            onClick={() => {
+              setStart("1970-01-01");
+              setEnd(new Date().toISOString().slice(0, 10));
+            }}
+          >
+            Use max available history
+          </button>
+          <p className="caption" style={{ marginTop: -10 }}>
+            Yahoo returns whatever it actually has — e.g. SPY back to 1993, AAPL to 1980 — an
+            early Start date just gets clipped to the ticker&apos;s real listing date.
+          </p>
           <label className="field">
             <span>In/out-of-sample split</span>
             <input value={split} onChange={(e) => setSplit(e.target.value)} />
@@ -469,6 +484,8 @@ export default function Page() {
               <div>
                 <div className="runmeta">
                   <span>data: {result.data_source}</span>
+                  <span>{result.n_rows} rows</span>
+                  <span>{result.n_trials} configs tested</span>
                   {elapsedSec != null && <span>completed in {elapsedSec.toFixed(1)}s</span>}
                   <span>n_folds: {folds}</span>
                   <span>cost: {costBps}bps</span>
