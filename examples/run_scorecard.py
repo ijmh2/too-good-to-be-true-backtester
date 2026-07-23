@@ -12,9 +12,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pandas as pd
-
-from tgtbt.data import get_prices, synthetic_prices
+from tgtbt.data import get_prices_or_fallback
 from tgtbt.strategies import (
     BuyAndHold,
     TrendVolTarget,
@@ -29,23 +27,13 @@ DOCS = Path(__file__).resolve().parent.parent / "docs"
 SPLIT = "2021-12-31"  # in-sample <= 2021, out-of-sample 2022+
 
 
-def load_spy() -> pd.DataFrame:
-    try:
-        px = get_prices("SPY", start="2010-01-01", end="2024-12-31")
-        if px.dropna(how="all").shape[0] > 500:
-            return px
-        raise RuntimeError("insufficient rows")
-    except Exception as exc:  # noqa: BLE001
-        print(f"[data] live fetch failed ({exc!r}); using synthetic prices.")
-        return synthetic_prices("SPY", n_days=3000, seed=7)
-
-
 def main() -> None:
     DOCS.mkdir(exist_ok=True)
     S.apply_style()
-    prices = load_spy()
+    prices, source = get_prices_or_fallback("SPY", start="2010-01-01", end="2024-12-31", min_rows=500)
     benchmark = BuyAndHold().backtest(prices).net_returns
-    print(f"[data] SPY rows={len(prices)}, {prices.index[0].date()}..{prices.index[-1].date()}\n")
+    print(f"[data] SPY source={source}, rows={len(prices)}, "
+          f"{prices.index[0].date()}..{prices.index[-1].date()}\n")
 
     cases = [
         (

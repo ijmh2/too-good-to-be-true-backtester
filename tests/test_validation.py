@@ -14,6 +14,7 @@ from tgtbt.data import synthetic_prices
 from tgtbt.strategies.trend import make_trend_vt, TrendVolTarget
 from tgtbt.strategies.buy_and_hold import BuyAndHold
 from tgtbt.strategies.dual_momentum import DualMomentum
+from tgtbt.strategies.bollinger_breakout import BollingerBreakout
 from tgtbt.validation import (
     expand_grid,
     train_test_split,
@@ -50,6 +51,14 @@ def test_trend_weights_are_valid_and_bounded():
     assert not w.isna().any().any()
     assert (w >= 0).all().all() and (w <= 1.0 + 1e-9).all().all()
     assert (w.iloc[:99] == 0).all().all()  # 100-day MA valid only from the 100th row on
+
+
+def test_bollinger_breakout_weights_are_valid_and_bounded():
+    px = _prices()
+    w = BollingerBreakout(window=20, k=2.0).generate_weights(px)
+    assert not w.isna().any().any()
+    assert (w >= -1.0 - 1e-9).all().all() and (w <= 1.0 + 1e-9).all().all()
+    assert (w.iloc[:19] == 0).all().all()  # 20-day mean/std valid only from the 20th row on
 
 
 def test_walk_forward_runs_and_is_causal():

@@ -8,25 +8,12 @@ together before any strategy or validation logic is built on top.
 
 from __future__ import annotations
 
-import pandas as pd
-
-from tgtbt.data import get_prices, synthetic_prices
+from tgtbt.data import get_prices_or_fallback
 from tgtbt.strategies import BuyAndHold
 
 
-def load_prices() -> tuple[pd.DataFrame, str]:
-    try:
-        prices = get_prices("SPY", start="2015-01-01", end="2024-12-31")
-        if prices.dropna(how="all").shape[0] < 100:
-            raise RuntimeError("too few rows")
-        return prices, "live SPY (yfinance)"
-    except Exception as exc:  # noqa: BLE001 - offline fallback is the whole point
-        print(f"[data] live fetch failed ({exc!r}); using synthetic prices instead.")
-        return synthetic_prices("SPY", n_days=2000, seed=42), "synthetic GBM"
-
-
 def main() -> None:
-    prices, source = load_prices()
+    prices, source = get_prices_or_fallback("SPY", start="2015-01-01", end="2024-12-31", min_rows=100)
     print(f"[data] source = {source}, rows = {len(prices)}, "
           f"span = {prices.index[0].date()} .. {prices.index[-1].date()}")
 

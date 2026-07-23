@@ -33,7 +33,7 @@ from api.registry import REGISTRY, coerce, grid_of, public_schema
 from api.serialize import scorecard_to_dict
 from api.uploads import example_csv_text, exec_strategy_code, parse_uploaded_prices
 from tgtbt.costs import CostModel
-from tgtbt.data import get_prices, synthetic_prices
+from tgtbt.data import get_prices_or_fallback
 from tgtbt.reporting.scorecard import run_scorecard
 from tgtbt.strategies import BuyAndHold
 
@@ -77,17 +77,7 @@ class RunRequest(BaseModel):
 
 @lru_cache(maxsize=64)
 def _load_ticker_prices(tickers: tuple[str, ...], start: str, end: str) -> tuple:
-    try:
-        px = get_prices(list(tickers), start=start, end=end)
-        if px.dropna(how="all").shape[0] > 250:
-            return px, "live (yfinance)"
-        raise RuntimeError("insufficient rows")
-    except Exception as exc:  # noqa: BLE001 - graceful synthetic fallback
-        n = max(750, (pd.Timestamp(end) - pd.Timestamp(start)).days)
-        px = pd.concat(
-            [synthetic_prices(t, n_days=n, seed=i) for i, t in enumerate(tickers)], axis=1
-        )
-        return px, f"synthetic fallback ({exc})"
+    return get_prices_or_fallback(list(tickers), start=start, end=end)
 
 
 @app.get("/health")

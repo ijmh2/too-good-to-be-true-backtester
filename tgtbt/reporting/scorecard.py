@@ -58,6 +58,32 @@ class Scorecard:
     flags: dict = field(default_factory=dict)
 
     # ---- verdict logic ----
+    #
+    # The four flags are not interchangeable, so they are not weighted equally. They split into
+    # two validity checks (hard vetoes — fail either and nothing else can save the verdict) and
+    # two confidence checks (soft — needed for the strongest verdict, but their absence alone
+    # only caps you at "inconclusive", never demotes you to "likely overfit"):
+    #
+    #   - oos_positive (validity)   : did the walk-forward-selected config even make money
+    #                                 out-of-sample? If not, there is nothing left to be
+    #                                 "confident" about — an automatic disqualifier.
+    #   - low_overfit_prob (validity): CSCV's PBO estimates whether the *search process itself*
+    #                                 is more likely to have picked noise than signal. PBO > 0.5
+    #                                 means the in-sample winner is more likely than not to be a
+    #                                 below-median performer out-of-sample — the search was more
+    #                                 likely harmful than helpful, regardless of how the winner
+    #                                 looks. Also a disqualifier.
+    #   - timing_significant (confidence): permutation p-value — how sure are we the *timing*
+    #                                 isn't explainable by random entries/exits at the same
+    #                                 exposure?
+    #   - beats_deflated_bar (confidence): does the Sharpe clear the bar you'd expect from the
+    #                                 best of N lucky configurations, given how many were tried?
+    #
+    # A strategy can honestly survive OOS with a trustworthy search process yet still lack the
+    # statistical power to hit the stricter significance bars (a common, honest outcome with
+    # ~100-150 events) — that is exactly what "inconclusive" is for. Requiring all four for any
+    # non-overfit verdict would conflate "did this work" with "are we fully confident why", and
+    # would make small-sample-but-plausible results indistinguishable from actual overfitting.
     def _decide(self) -> None:
         oos_ok = self.wf_result.oos_sharpe > 0
         perm_ok = self.perm_result.p_value < PERM_ALPHA
@@ -70,7 +96,7 @@ class Scorecard:
             "low_overfit_prob": pbo_ok,
         }
         passes = sum(self.flags.values())
-        if not oos_ok or not pbo_ok:
+        if not oos_ok or not pbo_ok:  # hard vetoes: validity, not confidence
             self.verdict = "likely overfit"
         elif passes == 4:
             self.verdict = "likely real edge"

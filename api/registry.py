@@ -9,7 +9,12 @@ deflated-Sharpe explore.
 
 from __future__ import annotations
 
-from tgtbt.strategies import make_dual_momentum, make_mean_reversion, make_trend_vt
+from tgtbt.strategies import (
+    make_bollinger_breakout,
+    make_dual_momentum,
+    make_mean_reversion,
+    make_trend_vt,
+)
 
 REGISTRY: dict[str, dict] = {
     "trend": {
@@ -20,11 +25,13 @@ REGISTRY: dict[str, dict] = {
         "default_tickers": "SPY",
         "params": [
             {"name": "trend_window", "label": "Trend MA window (days)", "type": "int",
-             "default": 200, "min": 20, "max": 300, "step": 10, "grid": [50, 100, 150, 200]},
+             "default": 200, "min": 20, "max": 300, "step": 10,
+             "grid": [50, 100, 150, 200, 250]},
             {"name": "vol_window", "label": "Volatility lookback (days)", "type": "int",
              "default": 20, "min": 5, "max": 90, "step": 5, "grid": [20, 40, 60]},
             {"name": "target_vol", "label": "Target annual volatility", "type": "float",
-             "default": 0.15, "min": 0.05, "max": 0.40, "step": 0.01, "grid": [0.15]},
+             "default": 0.15, "min": 0.05, "max": 0.40, "step": 0.01,
+             "grid": [0.10, 0.15, 0.20]},
         ],
     },
     "meanrev": {
@@ -35,10 +42,10 @@ REGISTRY: dict[str, dict] = {
         "default_tickers": "SPY",
         "params": [
             {"name": "lookback", "label": "Lookback window (days)", "type": "int",
-             "default": 5, "min": 2, "max": 30, "step": 1, "grid": [3, 5, 10, 20]},
+             "default": 5, "min": 2, "max": 30, "step": 1, "grid": [3, 5, 8, 10, 15, 20]},
             {"name": "entry_z", "label": "Entry z-score (below)", "type": "float",
              "default": -1.0, "min": -3.0, "max": -0.25, "step": 0.25,
-             "grid": [-0.5, -1.0, -1.5, -2.0]},
+             "grid": [-0.5, -1.0, -1.5, -2.0, -2.5]},
         ],
     },
     "dualmom": {
@@ -50,6 +57,21 @@ REGISTRY: dict[str, dict] = {
         "params": [
             {"name": "lookback", "label": "Momentum lookback (days)", "type": "int",
              "default": 126, "min": 20, "max": 300, "step": 10, "grid": [63, 126, 252]},
+        ],
+    },
+    "bollinger": {
+        "name": "Bollinger breakout",
+        "description": "Go long on a volatility breakout above the upper Bollinger Band; exit "
+                       "back to cash once price falls back below the rolling mean. A classic "
+                       "momentum-ignition setup — profits on continuation, gives back edge "
+                       "whenever breakouts are just noise.",
+        "factory": make_bollinger_breakout,
+        "default_tickers": "TSLA",
+        "params": [
+            {"name": "window", "label": "Band window (days)", "type": "int",
+             "default": 20, "min": 5, "max": 60, "step": 5, "grid": [10, 20, 30, 50]},
+            {"name": "k", "label": "Band width (std devs)", "type": "float",
+             "default": 2.0, "min": 0.5, "max": 4.0, "step": 0.25, "grid": [1.5, 2.0, 2.5]},
         ],
     },
 }

@@ -73,6 +73,34 @@ def to_returns(prices: pd.DataFrame) -> pd.DataFrame:
     return prices.pct_change().iloc[1:]
 
 
+def get_prices_or_fallback(
+    tickers: str | list[str],
+    start: str = "2010-01-01",
+    end: str = "2024-12-31",
+    *,
+    min_rows: int = 250,
+) -> tuple[pd.DataFrame, str]:
+    """Live prices via `get_prices`, falling back to `synthetic_prices` if Yahoo is unreachable
+    or rate-limiting, or returns too few rows to be useful. Returns (prices, source_label).
+
+    This is the one place the "try live, fall back to synthetic" pattern is implemented —
+    the API, the example scripts, and batch testing all call this rather than each
+    reimplementing their own try/except, so the fallback behaviour can't silently diverge.
+    """
+    tickers_list = [tickers] if isinstance(tickers, str) else list(tickers)
+    try:
+        px = get_prices(tickers_list, start=start, end=end)
+        if px.dropna(how="all").shape[0] > min_rows:
+            return px, "live (yfinance)"
+        raise RuntimeError("insufficient rows")
+    except Exception as exc:  # noqa: BLE001 - graceful synthetic fallback
+        n = max(750, (pd.Timestamp(end) - pd.Timestamp(start)).days)
+        px = pd.concat(
+            [synthetic_prices(t, n_days=n, seed=i) for i, t in enumerate(tickers_list)], axis=1
+        )
+        return px, f"synthetic fallback ({exc})"
+
+
 def synthetic_prices(
     tickers: str | list[str],
     n_days: int = 1000,

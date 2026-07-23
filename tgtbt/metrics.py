@@ -87,7 +87,7 @@ def alpha_beta(returns: pd.Series, benchmark: pd.Series) -> tuple[float, float]:
 
     Returns (alpha_annualised, beta). Alpha is the daily intercept * 252.
     """
-    df = pd.concat([returns.rename("r"), benchmark.rename("b")], axis=1).dropna()
+    df = pd.concat([returns.rename("r"), benchmark.rename("b")], axis=1, sort=False).dropna()
     if len(df) < 3:
         return (np.nan, np.nan)
     beta, intercept = np.polyfit(df["b"].to_numpy(), df["r"].to_numpy(), 1)

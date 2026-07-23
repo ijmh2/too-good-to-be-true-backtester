@@ -21,3 +21,4 @@ data_cache/*.parquet
 outputs/
 *.png
 !docs/**/*.png
+batch_*.csv
