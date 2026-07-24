@@ -98,6 +98,10 @@ Anyone can produce a beautiful equity curve by tuning parameters until the past 
 profitable. The hard — and genuinely valuable — skill is telling a real signal apart from a
 lucky fit. This repo is a toolkit for exactly that question.
 
+**New to terms like Sharpe, Deflated Sharpe, or PBO?** See [`GLOSSARY.md`](GLOSSARY.md) —
+every metric in the output, defined precisely to match what the code computes. The web UI
+also has an inline "What do these mean?" panel next to the results.
+
 ## Example output
 
 Same framework, two strategies on SPY (2010–2024, in-sample ≤ 2021, out-of-sample 2022+):

@@ -150,3 +150,15 @@ details.payload pre {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--ink-2);
   white-space: pre-wrap; word-break: break-all;
 }
+
+details.glossary { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+details.glossary > summary {
+  padding: 9px 12px; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--ink-2);
+  list-style: none; user-select: none;
+}
+details.glossary > summary::-webkit-details-marker { display: none; }
+details.glossary > summary::before { content: "▸ "; color: var(--muted); }
+details.glossary[open] > summary::before { content: "▾ "; }
+details.glossary dl { margin: 0; padding: 0 14px 12px; }
+details.glossary dt { font-weight: 600; font-size: 12.5px; color: var(--ink); margin-top: 8px; }
+details.glossary dd { margin: 2px 0 0; font-size: 12.5px; color: var(--ink-2); line-height: 1.5; }

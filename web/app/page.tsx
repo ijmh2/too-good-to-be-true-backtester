@@ -13,6 +13,30 @@ import {
   type Strategy,
 } from "@/lib/api";
 
+const GLOSSARY: [string, string][] = [
+  ["Full Sharpe", "Annualised risk-adjusted return over the whole sample — mean excess " +
+    "return divided by volatility. Above ~1.0 is strong; 0.3-0.7 is common."],
+  ["Walk-fwd OOS Sharpe", "The honest one. Parameters are re-picked using only data up to " +
+    "each point, then applied to the next unseen period — this is the closest thing here to " +
+    "\"would this have worked live.\""],
+  ["Permutation p", "Probability that a randomly-timed version of this same strategy (same " +
+    "exposure, scrambled timing) would do as well. Below 0.05 means the timing looks " +
+    "genuinely non-random."],
+  ["Deflated Sharpe", "Probability the true Sharpe beats the result you'd expect from luck " +
+    "alone, given how many parameter combinations were tried. Deflates an inflated Sharpe " +
+    "back down for multiple testing."],
+  ["Overfit prob (PBO)", "How often the in-sample \"best\" parameter choice turns out to be " +
+    "a below-median performer out-of-sample. ~0.5 is what pure noise looks like; above 0.5 " +
+    "means the search is more likely to have picked noise than signal."],
+  ["Max drawdown", "The largest peak-to-trough decline in the equity curve — the worst it " +
+    "ever felt to be holding this."],
+  ["\"Real edge\" vs. beats buy-and-hold", "The verdict certifies the timing signal is " +
+    "statistically genuine — not that the strategy earns more than a fully-invested " +
+    "benchmark, which a lower-beta strategy usually won't in a rising market. Check Alpha " +
+    "in the metrics table below to see if it's actually adding value after adjusting for " +
+    "how much market exposure it takes."],
+];
+
 const VERDICT_CLASS: Record<string, string> = {
   "likely real edge": "good",
   inconclusive: "warning",
@@ -513,6 +537,28 @@ export default function Page() {
                 <Tile k="Overfit prob (PBO)" v={fmt(result.tiles.pbo)} />
                 <Tile k="Max drawdown" v={fmt(result.tiles.max_drawdown_pct, 1, "%")} />
               </div>
+
+              <details className="glossary">
+                <summary>What do these mean?</summary>
+                <dl>
+                  {GLOSSARY.map(([term, def]) => (
+                    <div key={term}>
+                      <dt>{term}</dt>
+                      <dd>{def}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <p className="caption" style={{ padding: "0 14px 12px" }}>
+                  Full definitions, with exact formulas:{" "}
+                  <a
+                    href="https://github.com/ijmh2/too-good-to-be-true-backtester/blob/main/GLOSSARY.md"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    GLOSSARY.md →
+                  </a>
+                </p>
+              </details>
 
               <div>
                 <h2>Equity curve (net of costs)</h2>
