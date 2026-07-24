@@ -57,15 +57,25 @@ Fill NaNs (warm-up periods) with `0.0` — that means "flat / in cash", which is
    Follow the style of `test_trend_weights_are_valid_and_bounded` in `tests/test_validation.py`.
 4. Run the full suite (`pytest -q` from repo root) and confirm everything passes, including
    your new test.
-5. Run your strategy through the actual scorecard on real data as a smoke test:
+5. Run your strategy through the actual scorecard on real data as a smoke test — easiest via
+   the CLI once the strategy is registered in `tgtbt/strategies/__init__.py`:
+
+   ```bash
+   tgtbt run --strategy-file /tmp/<name>_standalone.py --ticker SPY --out /tmp/<name>_scorecard.png
+   ```
+
+   (that needs a standalone copy with module-level `STRATEGY`/`FACTORY`/`GRID` appended — see
+   `app/strategy_template.py` — separate from the repo-integrated file, which shouldn't define
+   those globals; see the other files in `tgtbt/strategies/` for the pattern). Or from Python
+   directly:
 
 ```python
-from tgtbt.data import get_prices
+from tgtbt.data import get_prices_or_fallback
 from tgtbt.strategies import BuyAndHold
 from tgtbt.reporting.scorecard import run_scorecard
 from tgtbt.strategies.<name> import <Class>, make_<name>
 
-prices = get_prices("SPY", start="2010-01-01", end="2024-12-31")  # swap tickers if multi-asset
+prices, source = get_prices_or_fallback("SPY", start="2010-01-01", end="2024-12-31")
 benchmark = BuyAndHold().backtest(prices).net_returns
 grid = {...}  # 1-3 parameters, 2-4 values each — this is what walk-forward/CPCV sweep over
 card = run_scorecard(<Class>(...), make_<name>, grid, prices, benchmark=benchmark,
@@ -74,9 +84,9 @@ print(card.verdict, card.flags)
 card.figure().savefig("/tmp/<name>_scorecard.png")
 ```
 
-If `get_prices` fails (Yahoo rate limiting), fall back to
-`tgtbt.data.synthetic_prices("SPY", n_days=1500, seed=0)` for the smoke test — this is a normal
-offline fallback used throughout the repo, not a workaround you need to justify.
+`get_prices_or_fallback` already falls back to `synthetic_prices` automatically if Yahoo is
+unreachable/rate-limited — this is a normal offline fallback used throughout the repo, not a
+workaround you need to justify.
 
 ## What "good" looks like
 

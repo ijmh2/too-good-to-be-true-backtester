@@ -23,6 +23,9 @@ dependencies = [
 dev = ["pytest>=7"]
 api = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "pydantic>=2"]
 
+[project.scripts]
+tgtbt = "tgtbt.cli:main"
+
 [tool.setuptools.packages.find]
 include = ["tgtbt*"]
 

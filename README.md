@@ -5,51 +5,120 @@
 A strategy-validation harness built around one uncomfortable fact: **most backtested
 "edges" are overfitting artefacts.** You hand it a trading strategy; it runs the full
 gauntlet — out-of-sample splits, walk-forward re-fitting, parameter-robustness surfaces,
-permutation / random-timing nulls, Monte-Carlo confidence cones, and a multiple-testing
-correction — then returns a plain-English **verdict**: *real edge, overfit, or inconclusive.*
+permutation / random-timing nulls, Monte-Carlo confidence cones, the Deflated Sharpe
+(multiple-testing correction), and CSCV → probability of backtest overfitting — then returns
+a plain-English **verdict**: *likely real edge, inconclusive, or likely overfit.*
 
-The design bias throughout is toward **honesty over optimism**. Look-ahead is prevented
-structurally (a strategy physically never sees future bars); transaction costs are on from
-the first backtest; and the headline metric is a Sharpe *deflated* for how many
-configurations were tried.
+Look-ahead is prevented structurally (a strategy physically never sees future bars);
+transaction costs are on from the first backtest.
+
+## Quick start — one command, full depth
+
+```bash
+git clone https://github.com/ijmh2/too-good-to-be-true-backtester.git
+cd too-good-to-be-true-backtester
+python -m venv .venv && source .venv/bin/activate
+pip install -e .
+
+tgtbt list                                    # see the built-in strategies
+tgtbt run --strategy trend --ticker SPY       # runs the ENTIRE gauntlet, prints the verdict,
+                                               # saves a scorecard PNG — no server, no Node.js
+```
+
+That's it. No web server, no Node/npm, no notebook. Every statistical check described above
+runs on every `tgtbt run` — there is no "lite" mode; simple-to-use and in-depth are the same
+command.
+
+```
+$ tgtbt run --strategy trend --ticker SPY
+data: live (yfinance), 3773 rows, 2010-01-04 -> 2024-12-30
+running the gauntlet: 45 configs x 5-fold walk-forward, 300 permutation resamples, ...
+
+============================================================
+VERDICT: INCONCLUSIVE   (0.9s)
+============================================================
+  PASS  oos_positive
+  FAIL  timing_significant
+  PASS  beats_deflated_bar
+  PASS  low_overfit_prob
+
+| Metric                 | Value |
+|-------------------------|-------|
+| Full-sample Sharpe      | 0.89  |
+| Walk-forward OOS Sharpe | 0.85  |
+| Permutation p-value     | 0.070 |
+| Deflated Sharpe (DSR)   | 0.99  |
+| Prob. backtest overfit  | 0.25  |
+...
+[saved] scorecard_trend_vt.png
+```
+
+### Test your own strategy — still one command
+
+```bash
+tgtbt run --strategy-file my_strategy.py --ticker AAPL
+```
+
+`my_strategy.py` just needs three module-level names — `STRATEGY`, `FACTORY`, `GRID` — see
+[`app/strategy_template.py`](app/strategy_template.py) for the ~30-line contract and a working
+example to copy. No web upload, no code review gate: it's your machine, your file, executed
+directly — same trust model as running a Python script (because it is one).
+
+### Test your own data
+
+```bash
+tgtbt run --strategy trend --price-csv my_prices.csv
+```
+
+Any CSV with a date column and one numeric column per asset (headers become the asset names)
+— no Yahoo Finance account or API key needed.
+
+### Does the edge survive on other tickers?
+
+```bash
+tgtbt batch --strategy bollinger --tickers TSLA,NVDA,AAPL,SPY,QQQ
+```
+
+Runs the identical strategy/grid across every ticker and prints one sorted comparison table
+(`likely real edge` → `inconclusive` → `likely overfit`), instead of you re-running `tgtbt run`
+by hand per ticker.
+
+### More history, or more/fewer resamples
+
+```bash
+tgtbt run --strategy trend --ticker SPY --max-history     # fetches everything Yahoo has
+tgtbt run --strategy trend --ticker SPY --thorough         # 1000 resamples instead of 300
+```
+
+Run `tgtbt <list|run|batch> --help` for the full flag reference.
 
 ## Why this exists
 
 Anyone can produce a beautiful equity curve by tuning parameters until the past looks
 profitable. The hard — and genuinely valuable — skill is telling a real signal apart from a
-lucky fit. This repo is a toolkit for exactly that question, and a demonstration of the
-research discipline that separates a durable strategy from a data-mined mirage.
-
-## Status
-
-All phases built and tested:
-
-- [x] **Phase 0** — data layer, causal backtest engine, cost model, core metrics, first strategy
-- [x] **Phase 1** — trend / vol-target strategy, in-sample / out-of-sample split, plots
-- [x] **Phase 2** — validation core: walk-forward, parameter surface, permutation & random-timing nulls, Monte-Carlo
-- [x] **Phase 3** — deflated Sharpe (multiple-testing correction), CSCV → probability of backtest overfitting
-- [x] **Phase 4** — auto-generated overfit scorecard report + example strategies
+lucky fit. This repo is a toolkit for exactly that question.
 
 ## Example output
 
-The scorecard runs the full gauntlet and renders a single verdict. Same framework, two
-strategies on SPY (2010–2024, in-sample ≤ 2021, out-of-sample 2022+):
+Same framework, two strategies on SPY (2010–2024, in-sample ≤ 2021, out-of-sample 2022+):
 
 ![Trend scorecard](docs/scorecard_trend.png)
 
 **Trend + volatility targeting → `INCONCLUSIVE`.** Sharpe 0.89, walk-forward out-of-sample
-Sharpe 0.91, low overfit probability (PBO 0.12), and it roughly halves the drawdown of
-buy-and-hold. But the permutation p-value is 0.088 — the *timing* isn't quite distinguishable
-from a random-timing strategy with the same exposure — so the harness declines to call it a
-real edge. It also underperforms buy-and-hold on total return: a lower-drawdown, not a
-higher-return, story.
+Sharpe 0.91, low overfit probability (PBO 0.12) — but the permutation p-value is 0.088, so the
+*timing* isn't quite distinguishable from a random-timing strategy with the same exposure, and
+the harness declines to call it a real edge.
 
 **Short-horizon mean reversion → `LIKELY OVERFIT`.** A pretty in-sample curve, but PBO 0.61
 and a deflated Sharpe of 0.79 — the search is more likely fitting noise than finding signal.
 (See [`docs/scorecard_meanrev.png`](docs/scorecard_meanrev.png).)
 
 That an honestly-built framework returns "inconclusive / overfit" rather than a fantasy Sharpe
-is the entire point.
+is the entire point. See also `tgtbt batch --strategy bollinger --tickers TSLA,NVDA,AAPL,SPY,QQQ`:
+the same breakout strategy shows a real edge on TSLA and AAPL, is inconclusive on the
+diversified SPY/QQQ, and is flagged *likely overfit* on NVDA specifically because its overfit
+probability is 0.81 despite a superficially decent Sharpe of 0.91 — the deeper diagnostics
+catching what a Sharpe-only check would miss.
 
 ## Design principles
 
@@ -60,90 +129,78 @@ is the entire point.
    because an event-driven edge that ignores costs isn't an edge.
 3. **Assume you're fooling yourself.** Every result is checked against a null (random timing /
    permuted signals) and corrected for the number of trials.
+4. **"Real edge" ≠ "beats buy-and-hold".** The verdict certifies a timing signal is
+   statistically genuine — not that the strategy out-earns a fully-invested benchmark, which a
+   lower-beta strategy usually won't in a rising market. Alpha and beta vs. the benchmark are
+   always reported alongside Sharpe so you can tell the two questions apart.
 
-## Quick start
+## Writing your own strategy
 
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -e .
-python examples/phase0_smoke.py      # data -> engine -> metrics sanity check
-python examples/run_scorecard.py     # full overfit scorecards on SPY -> docs/*.png
-```
-
-Scoring your own strategy is a few lines:
+Subclass `Strategy` and implement one method, using only backward-looking windows:
 
 ```python
-from tgtbt.data import get_prices
-from tgtbt.strategies import TrendVolTarget, make_trend_vt, BuyAndHold
+class MyStrategy(Strategy):
+    def generate_weights(self, prices: pd.DataFrame) -> pd.DataFrame:
+        ...  # weights.loc[t] may depend only on prices up to and including row t
+```
+
+Then either point the CLI at it (`tgtbt run --strategy-file my_strategy.py --ticker ...`), or
+drive it from Python directly:
+
+```python
+from tgtbt.data import get_prices_or_fallback
+from tgtbt.strategies import BuyAndHold
 from tgtbt.reporting.scorecard import run_scorecard
+from my_strategy import STRATEGY, FACTORY, GRID
 
-prices = get_prices("SPY", start="2010-01-01", end="2024-12-31")
+prices, source = get_prices_or_fallback("SPY", start="2010-01-01", end="2024-12-31")
 benchmark = BuyAndHold().backtest(prices).net_returns
-grid = {"trend_window": [50, 100, 150, 200], "vol_window": [20, 40, 60], "target_vol": [0.15]}
-
-card = run_scorecard(TrendVolTarget(trend_window=200), make_trend_vt, grid,
-                     prices, benchmark=benchmark, split_date="2021-12-31")
+card = run_scorecard(STRATEGY, FACTORY, GRID, prices, benchmark=benchmark, split_date="2021-12-31")
 print(card.verdict)          # 'likely real edge' | 'inconclusive' | 'likely overfit'
 card.figure().savefig("scorecard.png")
 ```
 
-Write a new strategy by subclassing `Strategy` and implementing one method,
-`generate_weights(prices) -> weights`, using only backward-looking windows.
+## Optional: web UI
 
-## Interactive UI
-
-One app — a Next.js frontend over a FastAPI backend — with two modes:
-
-```
-web/   Next.js 15 + React 19 UI  → deploy on Vercel
-api/   FastAPI service           → deploy on any Docker host (see api/README.md, render.yaml)
-```
-
-**Public mode (default).** Callers pick a built-in strategy and *parameter values*, and a
-ticker universe — no user code is ever executed. This is what the public deploy runs. Try it
-locally:
+A Next.js frontend over a FastAPI backend, for a nicer visual experience or a shareable public
+link — **not required** for any of the above, and needs Node.js in addition to Python:
 
 ```bash
+pip install -e ".[api]"
 uvicorn api.main:app --port 8000            # terminal 1 (backend)
-cd web && npm install && npm run dev        # terminal 2 (frontend → http://localhost:3000)
+cd web && npm install && npm run dev        # terminal 2 (frontend -> http://localhost:3000)
 ```
 
-**Local upload mode.** Set one env var to additionally test **your own strategy code and your
-own price data** — no separate app, same UI:
-
-```bash
-TGTBT_ALLOW_UPLOADS=1 uvicorn api.main:app --port 8000
-```
-
-The frontend detects this via `/config` and reveals two extra options: upload a `.py` file
-defining `STRATEGY`, `FACTORY`, `GRID` (see [`app/strategy_template.py`](app/strategy_template.py)),
-and/or upload a CSV of your own prices (a date column + one numeric column per asset; headers
-become the asset names — there's a "download example CSV" link in the UI).
-
-This flag is **off by default and never set** in the Docker image or `render.yaml`, so the
-public deployment can't be tricked into running arbitrary code — only enable it when you're
-the only one who can reach the server (e.g. on `localhost`). Uploaded code executes
-in-process, same trust model as running a notebook cell — only upload scripts you trust.
+By default this is the same "no user code executed" public mode the CLI's `--strategy`
+built-ins use. Set `TGTBT_ALLOW_UPLOADS=1` to also unlock pasting your own strategy code/CSV
+data in the browser (mirrors `--strategy-file`/`--price-csv` above) — **only do this on your
+own machine**; it's off by default and never set in the Docker image or `render.yaml`, so a
+public deployment can't be tricked into running arbitrary code. Deploy: `web/` on Vercel,
+`api/` on any Docker host (`Dockerfile` + `render.yaml` included). Details in
+[`api/README.md`](api/README.md) and [`web/README.md`](web/README.md).
 
 ## Layout
 
 ```
 tgtbt/
-  data.py            # price fetch (yfinance) + parquet cache + synthetic fallback
-  costs.py           # turnover-based transaction-cost model
-  engine.py          # causal weights -> portfolio-returns backtester
-  metrics.py         # CAGR, Sharpe, Sortino, max drawdown, Calmar, alpha/beta
-  strategies/        # Strategy base + buy&hold, trend/vol-target, mean-reversion, dual-momentum
-  validation/        # walk-forward, robustness surface, permutation, Monte-Carlo,
-                     #   deflated Sharpe (PSR/DSR), CSCV -> PBO
-  reporting/         # chart builders + the composed overfit scorecard
-app/                 # strategy_template.py (upload contract) + AGENT_PROMPT.md
-api/                 # FastAPI backend — public mode + gated local upload mode
-web/                 # Next.js + React frontend, deployable to Vercel
-examples/            # runnable end-to-end scripts
-tests/               # look-ahead leak test, engine correctness, validation-stat checks
-docs/                # committed example scorecard figures
-Dockerfile           # API image; render.yaml gives a one-click Render deploy
+  cli.py             # `tgtbt` console command: list / run / batch
+  registry.py         # built-in strategy catalogue (shared by the CLI, API, and web UI)
+  loaders.py          # load a custom strategy file / custom price CSV
+  batch.py            # run one strategy across many tickers, one sorted comparison table
+  data.py              # price fetch (yfinance) + parquet cache + synthetic fallback
+  costs.py             # turnover-based transaction-cost model
+  engine.py            # causal weights -> portfolio-returns backtester
+  metrics.py           # CAGR, Sharpe, Sortino, max drawdown, Calmar, alpha/beta
+  strategies/          # Strategy base + buy&hold, trend/vol-target, mean-reversion,
+                       #   dual-momentum, Bollinger breakout
+  validation/          # walk-forward, robustness surface, permutation, Monte-Carlo,
+                       #   deflated Sharpe (PSR/DSR), CSCV -> PBO
+  reporting/           # chart builders + the composed overfit scorecard
+app/                   # strategy_template.py (the STRATEGY/FACTORY/GRID contract) + AGENT_PROMPT.md
+api/, web/             # optional web UI (see "Optional: web UI" above)
+examples/              # runnable end-to-end scripts
+tests/                 # look-ahead leak test, engine correctness, CLI + validation-stat checks
+docs/                  # committed example scorecard figures
 ```
 
 ## Caveats (read these)

@@ -1,10 +1,11 @@
-"""Built-in strategy registry with parameter schemas for the public API.
+"""Built-in strategy catalogue, with parameter schemas — shared by the CLI, the API, and the
+web UI so there is exactly one place that lists "what strategies ship with this repo".
 
-The public API deliberately never executes user-supplied code — a caller picks a strategy id
-and parameter *values* from this fixed catalogue. Each param carries UI hints (type, range,
-default) plus a `grid`: the search space the validation gauntlet stress-tests over. The
-headline strategy uses the caller's chosen values; the grid is what walk-forward / CPCV /
-deflated-Sharpe explore.
+A caller (CLI flag, API request, or UI dropdown) picks a strategy id and parameter *values*
+from this fixed catalogue. Each param carries UI/CLI hints (type, range, default) plus a
+`grid`: the search space the validation gauntlet stress-tests over. The headline strategy
+uses the caller's chosen values; the grid is what walk-forward / CPCV / deflated-Sharpe
+explore.
 """
 
 from __future__ import annotations

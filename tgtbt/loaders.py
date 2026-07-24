@@ -1,9 +1,10 @@
-"""Local-only upload support: custom strategy code and custom price data.
+"""Loaders for custom strategy code and custom price data — shared by the CLI and the API.
 
-Both capabilities are gated behind `ALLOW_UPLOADS` in `api/main.py` (an env var, off by
-default) because executing arbitrary Python is only ever safe when the caller is you, on your
-own machine. Price-data parsing alone is not unsafe, but it's bundled under the same gate for
-one simple mental model: "upload mode" is a local-dev feature, full stop.
+`exec_strategy_code` runs arbitrary Python, so callers must gate it appropriately for their
+context: the CLI runs it directly (you invoked it, on your own machine, on a file you chose —
+same trust model as running a Python script); the web API gates it behind `TGTBT_ALLOW_UPLOADS`
+(an env var, off by default) since a public deployment must never execute a stranger's code.
+`parse_uploaded_prices` is plain CSV parsing and carries no such risk either way.
 """
 
 from __future__ import annotations

@@ -29,11 +29,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from api.registry import REGISTRY, coerce, grid_of, public_schema
 from api.serialize import scorecard_to_dict
-from api.uploads import example_csv_text, exec_strategy_code, parse_uploaded_prices
 from tgtbt.costs import CostModel
 from tgtbt.data import get_prices_or_fallback
+from tgtbt.loaders import example_csv_text, exec_strategy_code, parse_uploaded_prices
+from tgtbt.registry import REGISTRY, coerce, grid_of, public_schema
 from tgtbt.reporting.scorecard import run_scorecard
 from tgtbt.strategies import BuyAndHold
 
